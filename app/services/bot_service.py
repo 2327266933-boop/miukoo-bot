@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import datetime
 from typing import Any
@@ -14,6 +15,8 @@ from app.services.feishu import FeishuClient
 from app.services.ocr import InternalOcrClient
 from app.services.storage import JsonlRecordStore
 from app.services.table_exporter import DailyTableExporter
+
+logger = logging.getLogger(__name__)
 
 
 class BotService:
@@ -43,8 +46,9 @@ class BotService:
         chat_id = message.get("chat_id", "")
         sender_id = event.get("sender", {}).get("sender_id", {}).get("user_id")
         message_text, image_keys = self._extract_message_parts(message)
+        logger.info("Received Feishu message: message_id=%s chat_id=%s", message_id, chat_id)
 
-        if await self._handle_command(message_text, message_id=message_id):
+        if await self._handle_command(message_text, message_id=message_id, chat_id=chat_id):
             return
 
         if not message_text and not image_keys:
@@ -88,10 +92,30 @@ class BotService:
         summary = self.table_exporter.export(records, today)
         await self.feishu.send_text(self.settings.feishu_target_chat_id, format_daily_summary(summary))
 
-    async def _handle_command(self, text: str, *, message_id: str) -> bool:
+    async def _handle_command(self, text: str, *, message_id: str, chat_id: str) -> bool:
         clean_text = _strip_bot_mentions(text)
         if not clean_text:
             return False
+
+        if clean_text in {"群ID", "群id", "chat_id", "Chat ID"}:
+            await self.feishu.reply_text(message_id, f"当前群 chat_id：{chat_id}\n可填入 FEISHU_TARGET_CHAT_ID 用于日报推送。")
+            return True
+
+        if clean_text in {"帮助", "help", "Help"}:
+            await self.feishu.reply_text(
+                message_id,
+                "\n".join(
+                    [
+                        "支持命令：",
+                        "@机器人 查询商家 123456",
+                        "@机器人 查询商品 987654",
+                        "@机器人 今日lose",
+                        "@机器人 原因0",
+                        "@机器人 群ID",
+                    ]
+                ),
+            )
+            return True
 
         merchant_match = re.search(r"查询商家\s*([A-Za-z0-9_-]+)", clean_text)
         if merchant_match:
