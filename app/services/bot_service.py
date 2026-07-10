@@ -89,7 +89,13 @@ class BotService:
                 for extracted in extracted_inputs
             ]
         except ExtractionError as exc:
-            await self.feishu.reply_text(message_id, f"这条消息暂时无法完整结构化，原因：{exc}\n请补充缺失字段后重发或回复标准模板。")
+            preview = _build_text_preview(combined_text)
+            await self.feishu.reply_text(
+                message_id,
+                f"这条消息暂时无法完整结构化，原因：{exc}\n"
+                f"{preview}"
+                "请补充缺失字段后重发或回复标准模板。",
+            )
             return
         except Exception as exc:
             await self.feishu.reply_text(message_id, f"处理消息时遇到异常：{exc}")
@@ -244,3 +250,12 @@ def _merge_confidence(left: float | None, right: float | None) -> float | None:
     if right is None:
         return left
     return min(left, right)
+
+
+def _build_text_preview(text: str, *, limit: int = 500) -> str:
+    clean_text = re.sub(r"\s+", " ", text or "").strip()
+    if not clean_text:
+        return "机器人没有从这条消息里识别到可用文字。\n"
+    if len(clean_text) > limit:
+        clean_text = clean_text[:limit] + "..."
+    return f"已识别文本预览：{clean_text}\n"

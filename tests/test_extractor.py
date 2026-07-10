@@ -28,6 +28,27 @@ def test_extract_standard_text() -> None:
     assert record.meituan_magic_coupon_subsidy == Decimal("20")
 
 
+def test_extract_ocr_friendly_aliases() -> None:
+    records = extract_price_inputs(
+        """
+        商家 id：123456
+        商品：测试套餐
+        抖 音 商 促：￥100
+        超值券金额：10元
+        美团团购价：100
+        神券力度：20
+        """
+    )
+
+    record = records[0]
+    assert record.merchant_id == "123456"
+    assert record.product_name == "测试套餐"
+    assert record.douyin_promo_price == Decimal("100")
+    assert record.douyin_super_coupon_subsidy == Decimal("10")
+    assert record.meituan_promo_price == Decimal("100")
+    assert record.meituan_magic_coupon_subsidy == Decimal("20")
+
+
 def test_extract_json_records() -> None:
     records = extract_price_inputs(
         """
@@ -51,4 +72,3 @@ def test_extract_json_records() -> None:
 def test_missing_required_field() -> None:
     with pytest.raises(ExtractionError):
         extract_price_inputs("商家ID：123456 抖音商促价：100")
-

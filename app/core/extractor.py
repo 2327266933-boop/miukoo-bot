@@ -13,18 +13,56 @@ class ExtractionError(ValueError):
 
 
 FIELD_ALIASES: dict[str, list[str]] = {
-    "merchant_id": ["商家ID", "商家id", "门店ID", "门店id", "merchant_id"],
+    "merchant_id": ["商家ID", "商家id", "商家 id", "商家编号", "门店ID", "门店id", "门店 id", "merchant_id"],
     "merchant_name": ["商家名称", "门店名称", "merchant_name"],
-    "product_id": ["商品ID", "商品id", "product_id"],
-    "sku_id": ["SKUID", "SKU ID", "sku_id", "sku"],
-    "product_name": ["商品名称", "商品名", "品名", "product_name"],
-    "douyin_promo_price": ["抖音商促价", "抖音活动价", "dy商促价", "douyin_promo_price"],
-    "douyin_super_coupon_subsidy": ["抖音超值券补贴", "超值券补贴", "抖音超值券", "douyin_super_coupon_subsidy"],
-    "douyin_other_subsidy": ["抖音其他补贴", "抖音非超值券补贴", "dy其他补贴", "douyin_other_subsidy"],
+    "product_id": ["商品ID", "商品id", "商品 id", "抖音商品ID", "抖音商品id", "美团商品ID", "美团商品id", "product_id"],
+    "sku_id": ["SKUID", "SKU ID", "SKU id", "sku_id", "sku"],
+    "product_name": ["商品名称", "商品名", "商品", "品名", "product_name"],
+    "douyin_promo_price": [
+        "抖音商促价",
+        "抖音商促",
+        "抖音活动价",
+        "抖音团购价",
+        "抖音团购促价",
+        "抖音促销价",
+        "dy商促价",
+        "douyin_promo_price",
+    ],
+    "douyin_super_coupon_subsidy": [
+        "抖音超值券补贴",
+        "抖音超值券金额",
+        "抖音超值券力度",
+        "超值券补贴",
+        "超值券金额",
+        "超值券力度",
+        "抖音超值券",
+        "超值券",
+        "douyin_super_coupon_subsidy",
+    ],
+    "douyin_other_subsidy": ["抖音其他补贴", "抖音其它补贴", "抖音非超值券补贴", "dy其他补贴", "douyin_other_subsidy"],
     "douyin_final_price_claimed": ["抖音最终到手价", "抖音到手价", "dy到手价", "douyin_final_price"],
-    "meituan_promo_price": ["美团商促价", "美团活动价", "mt商促价", "meituan_promo_price"],
-    "meituan_magic_coupon_subsidy": ["美团神券补贴", "神券补贴", "美团神券", "meituan_magic_coupon_subsidy"],
-    "meituan_other_subsidy": ["美团其他补贴", "美团非神券补贴", "mt其他补贴", "meituan_other_subsidy"],
+    "meituan_promo_price": [
+        "美团商促价",
+        "美团商促",
+        "美团活动价",
+        "美团团购价",
+        "美团团购促价",
+        "美团促销价",
+        "mt商促价",
+        "meituan_promo_price",
+    ],
+    "meituan_magic_coupon_subsidy": [
+        "美团神券补贴",
+        "美团神券金额",
+        "美团神券力度",
+        "神券补贴",
+        "神券金额",
+        "神券力度",
+        "美团神券",
+        "神券",
+        "meituan_magic_coupon_subsidy",
+    ],
+    "meituan_other_subsidy": ["美团其他补贴", "美团其它补贴", "美团非神券补贴", "mt其他补贴", "meituan_other_subsidy"],
     "meituan_final_price_claimed": ["美团最终到手价", "美团到手价", "mt到手价", "meituan_final_price"],
 }
 
@@ -123,15 +161,21 @@ def _try_extract_json_records(text: str) -> list[dict[str, Any]]:
 
 def _find_labeled_value(text: str, labels: list[str], *, is_money: bool) -> str | None:
     for label in labels:
-        escaped = re.escape(label)
+        escaped = _build_flexible_label_pattern(label)
         if is_money:
-            pattern = rf"{escaped}\s*[:：=]?\s*(-?\d+(?:\.\d+)?)\s*(?:元|RMB|rmb)?"
+            pattern = rf"{escaped}\s*[:：=]?\s*(?:¥|￥|RMB|rmb)?\s*(-?\d+(?:\.\d+)?)\s*(?:元)?"
         else:
             pattern = rf"{escaped}\s*[:：=]?\s*([^\s，,；;|]+)"
         match = re.search(pattern, text, flags=re.I)
         if match:
             return match.group(1).strip()
     return None
+
+
+def _build_flexible_label_pattern(label: str) -> str:
+    # OCR may insert spaces between Chinese characters or split words across lines.
+    parts = [re.escape(char) for char in label if not char.isspace()]
+    return r"\s*".join(parts)
 
 
 def _parse_money(value: Any) -> Decimal:
