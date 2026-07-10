@@ -53,9 +53,10 @@ class FeishuClient:
         async with httpx.AsyncClient(timeout=20) as client:
             response = await client.get(
                 f"{self.BASE_URL}/im/v1/images/{image_key}",
+                params={"image_type": "message"},
                 headers={"Authorization": f"Bearer {token}"},
             )
-            response.raise_for_status()
+            _raise_for_feishu_error(response, "下载飞书图片失败")
             return response.content
 
     async def get_tenant_access_token(self) -> str:
@@ -81,3 +82,11 @@ class FeishuClient:
 
     async def _get_tenant_access_token(self) -> str:
         return await self.get_tenant_access_token()
+
+
+def _raise_for_feishu_error(response: httpx.Response, message: str) -> None:
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        detail = response.text[:500]
+        raise RuntimeError(f"{message}：HTTP {response.status_code}，响应：{detail}") from exc
