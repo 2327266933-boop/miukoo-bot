@@ -65,6 +65,10 @@ class BotService:
             logger.exception("Failed to handle command: message_id=%s", message_id)
             raise
 
+        if not _strip_bot_mentions(message_text) and not image_keys:
+            await self.feishu.reply_text(message_id, "我只收到了@，没有收到价格文字或图片。请把标准模板文字发出来，或把图片和@机器人放在同一条消息里。")
+            return
+
         if not message_text and not image_keys:
             return
 
@@ -180,13 +184,14 @@ class BotService:
     def _extract_message_parts(self, message: dict[str, Any]) -> tuple[str, list[str]]:
         message_type = message.get("message_type", "")
         content = _loads_json_object(message.get("content", "{}"))
+        image_keys = _extract_image_keys(content)
         if message_type == "text":
-            return content.get("text", ""), []
+            return content.get("text", ""), image_keys
         if message_type == "image":
-            return "", [content.get("image_key", "")]
+            return "", _dedupe([content.get("image_key", ""), *image_keys])
         if message_type == "post":
-            return _extract_post_text(content), _extract_image_keys(content)
-        return _extract_post_text(content), _extract_image_keys(content)
+            return _extract_post_text(content), image_keys
+        return _extract_post_text(content) or _extract_any_text(content), image_keys
 
     def _build_message_link(self, chat_id: str, message_id: str) -> str | None:
         if not chat_id or not message_id:
@@ -222,19 +227,57 @@ def _extract_post_text(content: dict[str, Any]) -> str:
 
 def _extract_image_keys(content: dict[str, Any]) -> list[str]:
     keys: list[str] = []
-    post = content.get("post", {})
-    for locale_payload in post.values() if isinstance(post, dict) else []:
-        for line in locale_payload.get("content", []):
-            for item in line:
-                if item.get("tag") == "img" and item.get("image_key"):
-                    keys.append(item["image_key"])
-    return keys
+
+    def visit(value: Any) -> None:
+        if isinstance(value, dict):
+            for key in ("image_key", "img_key"):
+                image_key = value.get(key)
+                if isinstance(image_key, str) and image_key.strip():
+                    keys.append(image_key.strip())
+            for nested in value.values():
+                visit(nested)
+        elif isinstance(value, list):
+            for item in value:
+                visit(item)
+
+    visit(content)
+    return _dedupe(keys)
+
+
+def _extract_any_text(value: Any) -> str:
+    texts: list[str] = []
+
+    def visit(item: Any) -> None:
+        if isinstance(item, dict):
+            text = item.get("text")
+            if isinstance(text, str) and text.strip():
+                texts.append(text.strip())
+            for nested in item.values():
+                visit(nested)
+        elif isinstance(item, list):
+            for nested in item:
+                visit(nested)
+
+    visit(value)
+    return "\n".join(_dedupe(texts))
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
 
 
 def _strip_bot_mentions(text: str) -> str:
     text = text or ""
     text = re.sub(r"<at\b[^>]*>.*?</at>", "", text, flags=re.I | re.S)
     text = re.sub(r"@\S+\s*", "", text)
+    text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
 
