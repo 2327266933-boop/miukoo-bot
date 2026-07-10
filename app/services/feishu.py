@@ -48,12 +48,17 @@ class FeishuClient:
             )
             response.raise_for_status()
 
-    async def download_image(self, image_key: str) -> bytes:
+    async def download_message_image(self, *, message_id: str, image_key: str) -> bytes:
+        if not message_id:
+            raise RuntimeError("下载飞书图片失败：缺少 message_id")
+        if not image_key:
+            raise RuntimeError("下载飞书图片失败：缺少 image_key")
+
         token = await self.get_tenant_access_token()
         async with httpx.AsyncClient(timeout=20) as client:
             response = await client.get(
-                f"{self.BASE_URL}/im/v1/images/{image_key}",
-                params={"image_type": "message"},
+                f"{self.BASE_URL}/im/v1/messages/{message_id}/resources/{image_key}",
+                params={"type": "image"},
                 headers={"Authorization": f"Bearer {token}"},
             )
             _raise_for_feishu_error(response, "下载飞书图片失败")

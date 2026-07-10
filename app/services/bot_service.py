@@ -77,7 +77,7 @@ class BotService:
             combined_text = message_text
             confidence: float | None = None
             for image_key in image_keys:
-                image_bytes = await self.feishu.download_image(image_key)
+                image_bytes = await self.feishu.download_message_image(message_id=message_id, image_key=image_key)
                 ocr_result = await self.ocr.recognize_image(image_bytes)
                 combined_text = "\n".join(part for part in [combined_text, ocr_result.text] if part)
                 confidence = _merge_confidence(confidence, ocr_result.confidence)
