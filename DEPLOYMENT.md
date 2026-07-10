@@ -16,16 +16,17 @@
    - 发送消息
    - 回复消息
    - 下载消息图片
+   - 图片识别 OCR
 
-3. 内部 OCR/多模态服务：
-   - `INTERNAL_OCR_ENDPOINT`
-   - `INTERNAL_OCR_TOKEN`
-   - 确认接口支持 multipart 文件字段 `image`
+3. 图片识别：
+   - 默认使用飞书 OCR 接口
+   - 需要在飞书开放平台开通图片识别 OCR 相关权限
+   - `INTERNAL_OCR_ENDPOINT` 和 `INTERNAL_OCR_TOKEN` 仅作为切换内部 OCR/多模态服务时的备用配置
 
 4. 网络和域名：
    - 服务需要被飞书开放平台回调访问
    - 对外地址配置为 `https://你的域名/feishu/events`
-   - 服务器需要能访问飞书开放平台和内部 OCR 服务
+   - 服务器需要能访问飞书开放平台
 
 ## 环境变量
 
@@ -38,8 +39,8 @@ FEISHU_VERIFICATION_TOKEN=xxx
 FEISHU_TARGET_CHAT_ID=oc_xxx
 FEISHU_DEBUG_LOG_RAW_EVENTS=false
 
-INTERNAL_OCR_ENDPOINT=https://xxx/ocr
-INTERNAL_OCR_TOKEN=xxx
+INTERNAL_OCR_ENDPOINT=
+INTERNAL_OCR_TOKEN=
 INTERNAL_OCR_TIMEOUT_SECONDS=20
 
 DAILY_REPORT_HOUR=20

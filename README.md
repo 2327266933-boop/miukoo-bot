@@ -6,7 +6,7 @@
 
 - 监听飞书群新消息
 - 支持标准文本字段抽取
-- 支持飞书图片下载，并转发给公司内部 OCR/多模态接口识别
+- 支持飞书图片下载，并调用飞书 OCR 接口识别图片文字
 - 计算抖音到手价、美团到手价、是否 lose、原因标记
 - 到手价与公式计算不一致时自动进入人工复核
 - 按天生成本地 CSV 明细和原因标记=0清单
@@ -98,6 +98,7 @@ curl -X POST http://127.0.0.1:8000/jobs/daily-report
 - 读取群消息事件权限
 - 发送消息权限
 - 下载消息图片权限
+- 图片识别 OCR 权限
 - 机器人加入“BML问题反馈群”
 
 `.env` 至少需要：
@@ -107,9 +108,15 @@ FEISHU_APP_ID=
 FEISHU_APP_SECRET=
 FEISHU_VERIFICATION_TOKEN=
 FEISHU_TARGET_CHAT_ID=
-INTERNAL_OCR_ENDPOINT=
-INTERNAL_OCR_TOKEN=
 ```
+
+图片识别默认使用飞书 OCR：
+
+```text
+POST https://open.feishu.cn/open-apis/optical_char_recognition/v1/image/basic_recognize
+```
+
+鉴权复用 `FEISHU_APP_ID` 和 `FEISHU_APP_SECRET` 换取的 `tenant_access_token`。如果后续要切换成内部 OCR/多模态服务，再配置 `INTERNAL_OCR_ENDPOINT` 和 `INTERNAL_OCR_TOKEN`。
 
 ## 当前实现说明
 

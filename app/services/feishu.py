@@ -19,7 +19,7 @@ class FeishuClient:
     async def send_text(self, chat_id: str, text: str) -> None:
         if not chat_id:
             return
-        token = await self._get_tenant_access_token()
+        token = await self.get_tenant_access_token()
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.post(
                 f"{self.BASE_URL}/im/v1/messages",
@@ -36,7 +36,7 @@ class FeishuClient:
     async def reply_text(self, message_id: str, text: str) -> None:
         if not message_id:
             return
-        token = await self._get_tenant_access_token()
+        token = await self.get_tenant_access_token()
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.post(
                 f"{self.BASE_URL}/im/v1/messages/{message_id}/reply",
@@ -49,7 +49,7 @@ class FeishuClient:
             response.raise_for_status()
 
     async def download_image(self, image_key: str) -> bytes:
-        token = await self._get_tenant_access_token()
+        token = await self.get_tenant_access_token()
         async with httpx.AsyncClient(timeout=20) as client:
             response = await client.get(
                 f"{self.BASE_URL}/im/v1/images/{image_key}",
@@ -58,7 +58,7 @@ class FeishuClient:
             response.raise_for_status()
             return response.content
 
-    async def _get_tenant_access_token(self) -> str:
+    async def get_tenant_access_token(self) -> str:
         if self._tenant_access_token and time.time() < self._token_expires_at:
             return self._tenant_access_token
         if not self.app_id or not self.app_secret:
@@ -78,3 +78,6 @@ class FeishuClient:
         self._tenant_access_token = payload["tenant_access_token"]
         self._token_expires_at = time.time() + int(payload.get("expire", 7200)) - 300
         return self._tenant_access_token
+
+    async def _get_tenant_access_token(self) -> str:
+        return await self.get_tenant_access_token()

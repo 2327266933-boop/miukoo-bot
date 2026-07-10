@@ -10,7 +10,7 @@ from app.config import settings
 from app.jobs.scheduler import build_scheduler
 from app.services.bot_service import BotService
 from app.services.feishu import FeishuClient
-from app.services.ocr import InternalOcrClient
+from app.services.ocr import FeishuOcrClient, InternalOcrClient
 from app.services.storage import JsonlRecordStore
 from app.services.table_exporter import DailyTableExporter
 
@@ -25,11 +25,17 @@ def build_bot_service() -> BotService:
         reason_zero_sheet_url_template=settings.reason_zero_sheet_url_template,
     )
     feishu = FeishuClient(app_id=settings.feishu_app_id, app_secret=settings.feishu_app_secret)
-    ocr = InternalOcrClient(
-        endpoint=settings.internal_ocr_endpoint,
-        token=settings.internal_ocr_token,
-        timeout_seconds=settings.internal_ocr_timeout_seconds,
-    )
+    if settings.internal_ocr_endpoint:
+        ocr = InternalOcrClient(
+            endpoint=settings.internal_ocr_endpoint,
+            token=settings.internal_ocr_token,
+            timeout_seconds=settings.internal_ocr_timeout_seconds,
+        )
+    else:
+        ocr = FeishuOcrClient(
+            access_token_provider=feishu.get_tenant_access_token,
+            timeout_seconds=settings.internal_ocr_timeout_seconds,
+        )
     return BotService(
         settings=settings,
         feishu=feishu,

@@ -12,7 +12,7 @@ from app.core.calculator import build_price_record
 from app.core.extractor import ExtractionError, extract_price_inputs
 from app.core.formatter import format_daily_summary, format_ingest_success, format_records
 from app.services.feishu import FeishuClient
-from app.services.ocr import InternalOcrClient
+from app.services.ocr import OcrClient
 from app.services.storage import JsonlRecordStore
 from app.services.table_exporter import DailyTableExporter
 
@@ -25,7 +25,7 @@ class BotService:
         *,
         settings: Settings,
         feishu: FeishuClient,
-        ocr: InternalOcrClient,
+        ocr: OcrClient,
         store: JsonlRecordStore,
         table_exporter: DailyTableExporter,
     ) -> None:
