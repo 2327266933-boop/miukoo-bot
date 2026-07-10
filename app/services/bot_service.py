@@ -112,7 +112,7 @@ class BotService:
         if not clean_text:
             return False
 
-        if clean_text in {"群ID", "群id", "群 id", "chat_id", "Chat ID"}:
+        if _is_chat_id_command(clean_text):
             await self.feishu.reply_text(message_id, f"当前群 chat_id：{chat_id}\n可填入 FEISHU_TARGET_CHAT_ID 用于日报推送。")
             return True
 
@@ -160,6 +160,13 @@ class BotService:
                 if record.is_lose and record.reason_flag == 0
             ]
             await self.feishu.reply_text(message_id, format_records(records, title="今日原因标记=0记录"))
+            return True
+
+        if clean_text.startswith("查询"):
+            await self.feishu.reply_text(
+                message_id,
+                "这个查询命令暂时不支持。可以试试：查询商家 123456、查询商品 987654、查询群ID。",
+            )
             return True
 
         return False
@@ -224,6 +231,11 @@ def _strip_bot_mentions(text: str) -> str:
     text = re.sub(r"@\S+\s*", "", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
+
+
+def _is_chat_id_command(text: str) -> bool:
+    normalized = re.sub(r"\s+", "", text).lower()
+    return normalized in {"群id", "查询群id", "chat_id", "chatid", "查询chatid"}
 
 
 def _merge_confidence(left: float | None, right: float | None) -> float | None:
