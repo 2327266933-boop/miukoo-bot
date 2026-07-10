@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     feishu_app_secret: str = ""
     feishu_verification_token: str = ""
     feishu_target_chat_id: str = ""
+    feishu_debug_log_raw_events: bool = False
 
     internal_ocr_endpoint: str = ""
     internal_ocr_token: str = ""
@@ -32,4 +33,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

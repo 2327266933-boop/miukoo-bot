@@ -36,6 +36,7 @@ FEISHU_APP_ID=cli_xxx
 FEISHU_APP_SECRET=xxx
 FEISHU_VERIFICATION_TOKEN=xxx
 FEISHU_TARGET_CHAT_ID=oc_xxx
+FEISHU_DEBUG_LOG_RAW_EVENTS=false
 
 INTERNAL_OCR_ENDPOINT=https://xxx/ocr
 INTERNAL_OCR_TOKEN=xxx
@@ -146,10 +147,31 @@ curl -X POST http://127.0.0.1:8000/jobs/daily-report
 
 6. 群里收到日报摘要。
 
+## 调试消息格式
+
+如果机器人没有回复，可以在 Railway 环境变量里临时设置：
+
+```text
+FEISHU_DEBUG_LOG_RAW_EVENTS=true
+```
+
+重新部署后，在群里发 `@机器人 帮助`，然后查看 Railway Logs。日志里会出现：
+
+```text
+RAW_FEISHU_SENDER=...
+RAW_FEISHU_MESSAGE=...
+RAW_FEISHU_MESSAGE_CONTENT=...
+```
+
+排查完成后建议改回：
+
+```text
+FEISHU_DEBUG_LOG_RAW_EVENTS=false
+```
+
 ## 生产注意事项
 
 - 当前版本先使用本地 `data/` 存储，需要挂载持久化目录。
 - 多实例部署前，需要先把本地 JSONL 换成数据库，避免数据分散。
 - 飞书事件加密如果开启，需要补充解密逻辑。
 - 如果要写入真实飞书表格，需要替换 `app/services/table_exporter.py`。
-

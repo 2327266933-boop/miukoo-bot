@@ -42,6 +42,9 @@ class BotService:
         if not message:
             return
 
+        if self.settings.feishu_debug_log_raw_events:
+            _log_raw_event_for_debug(event, message)
+
         message_id = message.get("message_id", "")
         chat_id = message.get("chat_id", "")
         sender_id = event.get("sender", {}).get("sender_id", {}).get("user_id")
@@ -184,6 +187,13 @@ def _loads_json_object(raw: str) -> dict[str, Any]:
     except (TypeError, json.JSONDecodeError):
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _log_raw_event_for_debug(event: dict[str, Any], message: dict[str, Any]) -> None:
+    sender = event.get("sender", {})
+    logger.info("RAW_FEISHU_SENDER=%s", json.dumps(sender, ensure_ascii=False, default=str))
+    logger.info("RAW_FEISHU_MESSAGE=%s", json.dumps(message, ensure_ascii=False, default=str))
+    logger.info("RAW_FEISHU_MESSAGE_CONTENT=%r", message.get("content", ""))
 
 
 def _extract_post_text(content: dict[str, Any]) -> str:
