@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import logging
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
@@ -12,6 +13,8 @@ from app.services.feishu import FeishuClient
 from app.services.ocr import InternalOcrClient
 from app.services.storage import JsonlRecordStore
 from app.services.table_exporter import DailyTableExporter
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 
 def build_bot_service() -> BotService:

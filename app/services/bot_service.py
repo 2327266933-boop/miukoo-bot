@@ -46,10 +46,21 @@ class BotService:
         chat_id = message.get("chat_id", "")
         sender_id = event.get("sender", {}).get("sender_id", {}).get("user_id")
         message_text, image_keys = self._extract_message_parts(message)
-        logger.info("Received Feishu message: message_id=%s chat_id=%s", message_id, chat_id)
+        logger.info(
+            "Received Feishu message: message_id=%s chat_id=%s message_type=%s text=%r image_count=%s",
+            message_id,
+            chat_id,
+            message.get("message_type", ""),
+            message_text[:200],
+            len(image_keys),
+        )
 
-        if await self._handle_command(message_text, message_id=message_id, chat_id=chat_id):
-            return
+        try:
+            if await self._handle_command(message_text, message_id=message_id, chat_id=chat_id):
+                return
+        except Exception:
+            logger.exception("Failed to handle command: message_id=%s", message_id)
+            raise
 
         if not message_text and not image_keys:
             return
@@ -94,14 +105,15 @@ class BotService:
 
     async def _handle_command(self, text: str, *, message_id: str, chat_id: str) -> bool:
         clean_text = _strip_bot_mentions(text)
+        logger.info("Normalized command text: %r", clean_text)
         if not clean_text:
             return False
 
-        if clean_text in {"群ID", "群id", "chat_id", "Chat ID"}:
+        if clean_text in {"群ID", "群id", "群 id", "chat_id", "Chat ID"}:
             await self.feishu.reply_text(message_id, f"当前群 chat_id：{chat_id}\n可填入 FEISHU_TARGET_CHAT_ID 用于日报推送。")
             return True
 
-        if clean_text in {"帮助", "help", "Help"}:
+        if clean_text.lower() == "help" or clean_text == "帮助":
             await self.feishu.reply_text(
                 message_id,
                 "\n".join(
@@ -197,7 +209,11 @@ def _extract_image_keys(content: dict[str, Any]) -> list[str]:
 
 
 def _strip_bot_mentions(text: str) -> str:
-    return re.sub(r"@\S+\s*", "", text or "").strip()
+    text = text or ""
+    text = re.sub(r"<at\b[^>]*>.*?</at>", "", text, flags=re.I | re.S)
+    text = re.sub(r"@\S+\s*", "", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
 
 
 def _merge_confidence(left: float | None, right: float | None) -> float | None:
