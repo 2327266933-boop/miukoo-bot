@@ -15,6 +15,7 @@ from app.services.feishu import FeishuClient
 from app.services.ocr import OcrClient
 from app.services.storage import JsonlRecordStore
 from app.services.table_exporter import DailyTableExporter
+from app.version import format_version_info
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +127,10 @@ class BotService:
             await self.feishu.reply_text(message_id, f"当前群 chat_id：{chat_id}\n可填入 FEISHU_TARGET_CHAT_ID 用于日报推送。")
             return True
 
+        if clean_text in {"版本", "version", "当前版本"}:
+            await self.feishu.reply_text(message_id, format_version_info())
+            return True
+
         if clean_text.lower() == "help" or clean_text == "帮助":
             await self.feishu.reply_text(
                 message_id,
@@ -137,6 +142,7 @@ class BotService:
                         "@机器人 今日lose",
                         "@机器人 原因0",
                         "@机器人 群ID",
+                        "@机器人 版本",
                     ]
                 ),
             )

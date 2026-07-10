@@ -13,6 +13,7 @@ from app.services.feishu import FeishuClient
 from app.services.ocr import FeishuOcrClient, InternalOcrClient
 from app.services.storage import JsonlRecordStore
 from app.services.table_exporter import DailyTableExporter
+from app.version import build_version_info
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
@@ -64,6 +65,11 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/version")
+async def version() -> dict[str, Any]:
+    return build_version_info()
 
 
 @app.get("/feishu/events")
