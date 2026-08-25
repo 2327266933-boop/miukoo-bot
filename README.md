@@ -1,70 +1,110 @@
-# BD 群发提醒机器人
+# BML价格Lose飞书机器人
 
-面向 BD 运营场景的自动消息机器人。使用者创建群发任务后，机器人会按消息类型渲染模板，给指定 BD 发送消息，并在对方未回复时按配置自动提醒。
+用于监听“BML问题反馈群”的新消息，识别 KA 发送的文字、图片或图文混合价格信息，自动计算抖音/美团到手价、判断是否 lose，并在每天 20:30 推送摘要。
 
-## 当前能力
+## 一期能力
 
-- 创建 BD 群发任务
-- 支持多个 BD 收件人
-- 支持消息类型和模板变量
-- 支持首发消息和提醒消息
-- 支持回复 webhook 回调
-- 收到回复后自动停止提醒
-- SQLite 记录任务、收件人、发送日志和回复日志
-- 后台 scheduler 定时扫描未回复对象
-- Mock 消息适配器，本地调试时只打印消息，不真实外发
-- GitHub Actions 自动运行编译检查和测试
+- 监听飞书群新消息
+- 支持标准文本字段抽取
+- 支持飞书图片下载，并调用飞书 OCR 接口识别图片文字
+- 计算抖音到手价、美团到手价、是否 lose、原因标记
+- 到手价与公式计算不一致时自动进入人工复核
+- 按天生成本地 CSV 明细和原因标记=0清单
+- 每天 20:30 推送日报
+- 支持群内查询命令
 
-## 核心流程
-
-1. 创建任务，指定收件人、消息类型、模板变量和提醒策略。
-2. 系统校验模板变量是否完整。
-3. 机器人发送首条消息，并写入发送日志。
-4. 系统监听 webhook，记录 BD 回复。
-5. 如果 BD 在指定时间内未回复，scheduler 自动发送提醒。
-6. 收到回复、达到最大提醒次数、任务取消或任务完成后停止提醒。
-
-## 项目结构
+## 计算口径
 
 ```text
-.
-├── .github/workflows/ci.yml
-├── examples/
-│   └── task.inventory.json
-├── miukoo_bot/
-│   ├── __main__.py
-│   ├── api.py
-│   ├── config.py
-│   ├── db.py
-│   ├── messaging.py
-│   ├── scheduler.py
-│   ├── service.py
-│   ├── templates.py
-│   └── time_utils.py
-├── tests/
-│   └── test_service.py
-├── README.md
-└── pyproject.toml
+抖音到手价 = 抖音商促价 - 抖音超值券补贴 - 抖音其他补贴
+美团到手价 = 美团商促价 - 美团神券补贴 - 美团其他补贴
+
+抖音到手价 > 美团到手价，则 lose = 是
+否则 lose = 否
+```
+
+原因标记只在 `lose = 是` 时判断：
+
+```text
+若 抖音超值券 < 美团神券
+且 美团神券 - 抖音超值券 >= 抖音到手价 - 美团到手价
+则 原因标记 = 1
+
+否则 原因标记 = 0
+```
+
+## 推荐 KA 输入模板
+
+```text
+商家ID：
+商家名称：
+商品ID：
+SKU ID：
+商品名称：
+抖音商促价：
+抖音超值券补贴：
+抖音其他补贴：
+抖音最终到手价：
+美团商促价：
+美团神券补贴：
+美团其他补贴：
+美团最终到手价：
+```
+
+其中 `抖音最终到手价`、`美团最终到手价` 可选。如果 KA 填写的最终到手价与机器人按公式计算的结果不一致，该记录会进入人工复核。
+
+## 群内命令
+
+```text
+@机器人 查询商家 123456
+@机器人 查询商品 987654
+@机器人 今日lose
+@机器人 原因0
 ```
 
 ## 本地启动
 
 ```bash
+cp .env.example .env
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-python -m miukoo_bot --host 127.0.0.1 --port 8080
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 健康检查：
 
 ```bash
-curl http://127.0.0.1:8080/health
+curl http://127.0.0.1:8000/health
 ```
 
-## 创建群发任务
+手动触发日报：
 
-仓库提供了一个库存确认任务示例：
+```bash
+curl -X POST http://127.0.0.1:8000/jobs/daily-report
+```
+
+## BD 群发提醒机器人 MVP
+
+仓库新增了一个独立的 BD 群发提醒机器人模块：`miukoo_bot/`。它用于创建群发任务、按模板给 BD 发送消息、记录回复，并在超时未回复时自动提醒。
+
+当前能力：
+
+- 创建群发任务
+- 按消息类型渲染首发消息和提醒消息
+- SQLite 记录任务、收件人、发送日志、回复日志
+- webhook 模拟 BD 回复
+- 未回复定时提醒
+- 收到回复后停止提醒
+- Mock 消息适配器，本地打印消息，不真实外发
+
+本地启动：
+
+```bash
+python -m miukoo_bot --host 127.0.0.1 --port 8080
+```
+
+创建示例任务：
 
 ```bash
 curl -X POST http://127.0.0.1:8080/api/tasks \
@@ -72,61 +112,7 @@ curl -X POST http://127.0.0.1:8080/api/tasks \
   --data @examples/task.inventory.json
 ```
 
-任务示例：
-
-```json
-{
-  "task_name": "8月门店库存确认",
-  "channel": "mock",
-  "message_type": "inventory_check",
-  "recipients": [
-    {
-      "bd_id": "bd_001",
-      "name": "张三",
-      "contact_id": "mock_user_001",
-      "group": "华东一区",
-      "variables": {
-        "city": "上海",
-        "shop_count": 12,
-        "deadline": "今天 18:00"
-      }
-    }
-  ],
-  "follow_up": {
-    "enabled": true,
-    "first_remind_after_minutes": 1,
-    "remind_interval_minutes": 2,
-    "max_remind_times": 2,
-    "stop_when_replied": true,
-    "quiet_hours": {
-      "start": "00:00",
-      "end": "00:00"
-    }
-  }
-}
-```
-
-## 查询任务
-
-查询任务列表：
-
-```bash
-curl http://127.0.0.1:8080/api/tasks
-```
-
-查询单个任务：
-
-```bash
-curl http://127.0.0.1:8080/api/tasks/{task_id}
-```
-
-取消任务：
-
-```bash
-curl -X POST http://127.0.0.1:8080/api/tasks/{task_id}/cancel
-```
-
-## 模拟 BD 回复
+模拟 BD 回复：
 
 ```bash
 curl -X POST http://127.0.0.1:8080/api/webhooks/mock/message \
@@ -134,97 +120,50 @@ curl -X POST http://127.0.0.1:8080/api/webhooks/mock/message \
   -d '{"task_id":"替换成任务ID","bd_id":"bd_001","content":"已确认"}'
 ```
 
-收到回复后，该 BD 的 `status` 会变成 `replied`，`next_remind_at` 会被清空，后续不再提醒。
+## 部署
 
-## 手动触发提醒扫描
+推荐先使用 Docker 部署，内部服务器不走容器时可以使用 systemd。完整步骤见 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
-服务启动后会自动启动后台提醒线程。调试时也可以手动触发一次扫描：
+## 飞书配置
 
-```bash
-curl -X POST http://127.0.0.1:8080/api/scheduler/run-once
-```
+需要创建飞书自建应用，并配置：
 
-## 消息类型
+- 机器人能力
+- 事件订阅地址：`https://你的域名/feishu/events`
+- 事件订阅 verification token，填入 `.env` 的 `FEISHU_VERIFICATION_TOKEN`
+- 读取群消息事件权限
+- 发送消息权限
+- 下载消息图片权限
+- 图片识别 OCR 权限
+- 机器人加入“BML问题反馈群”
 
-当前内置模板：
-
-| 类型 | 场景 | 关键变量 |
-| --- | --- | --- |
-| `inventory_check` | 门店库存确认 | `city`、`shop_count`、`deadline` |
-| `price_lose_follow` | 价格 Lose 跟进 | `shop_name`、`sku_name`、`lose_reason`、`deadline` |
-| `campaign_signup` | 活动报名提醒 | `campaign_name`、`signup_deadline`、`benefit` |
-| `material_collect` | 资料补充 | `material_name`、`missing_fields`、`deadline` |
-| `task_urge` | 通用任务催办 | `task_title`、`owner_name`、`deadline` |
-
-## 状态说明
-
-| 状态 | 说明 |
-| --- | --- |
-| `pending` | 收件人已创建，等待发送 |
-| `sent` | 首条消息已发送 |
-| `replied` | 已收到 BD 回复 |
-| `followed_up` | 已发送提醒，仍可能继续等待回复 |
-| `completed` | 已达到结束条件 |
-| `cancelled` | 任务或收件人被取消 |
-| `failed` | 发送失败或校验失败 |
-
-## 环境变量
-
-```bash
-BD_BOT_DATABASE=data/bd_bot.sqlite3
-BD_BOT_HOST=127.0.0.1
-BD_BOT_PORT=8080
-BD_BOT_SCHEDULER_INTERVAL_SECONDS=30
-
-DEFAULT_FIRST_REMIND_AFTER_MINUTES=120
-DEFAULT_REMIND_INTERVAL_MINUTES=180
-DEFAULT_MAX_REMIND_TIMES=2
-QUIET_HOURS_START=21:00
-QUIET_HOURS_END=09:00
-```
-
-## 测试
-
-```bash
-python -m compileall app miukoo_bot tests
-python -m pytest -q
-```
-
-当前测试覆盖：
-
-- 创建任务后发送首条消息
-- 未回复对象到点后发送提醒
-- 收到回复后停止提醒
-- 模板变量缺失时拒绝创建任务
-
-## CI
-
-GitHub Actions 配置在 `.github/workflows/ci.yml`。
-
-每次 push 或 pull request 会执行：
-
-```bash
-python -m compileall app miukoo_bot tests
-python -m pytest -q
-```
-
-## 后续接入真实消息平台
-
-当前使用 `MockMessageAdapter`，只会在本地打印消息。
-
-要接入飞书、企业微信或钉钉，需要替换 `miukoo_bot/messaging.py` 里的发送适配器，并配置真实平台的 webhook：
+`.env` 至少需要：
 
 ```text
-https://你的域名/api/webhooks/{channel}/message
+FEISHU_APP_ID=
+FEISHU_APP_SECRET=
+FEISHU_VERIFICATION_TOKEN=
+FEISHU_TARGET_CHAT_ID=
 ```
 
-需要放到环境变量或部署平台密钥中的配置包括：
+图片识别默认使用飞书 OCR：
 
 ```text
-LARK_APP_ID
-LARK_APP_SECRET
-LARK_VERIFICATION_TOKEN
-LARK_ENCRYPT_KEY
+POST https://open.feishu.cn/open-apis/optical_char_recognition/v1/image/basic_recognize
 ```
 
-不要把机器人密钥提交到 GitHub。
+鉴权复用 `FEISHU_APP_ID` 和 `FEISHU_APP_SECRET` 换取的 `tenant_access_token`。如果后续要切换成内部 OCR/多模态服务，再配置 `INTERNAL_OCR_ENDPOINT` 和 `INTERNAL_OCR_TOKEN`。
+
+## 当前实现说明
+
+一期先使用本地 JSONL 和 CSV 做数据沉淀：
+
+- 原始记录：`data/records-YYYY-MM-DD.jsonl`
+- 全量明细：`data/exports/bml-price-lose-YYYY-MM-DD.csv`
+- 原因0清单：`data/exports/bml-price-lose-reason0-YYYY-MM-DD.csv`
+
+如果已有飞书表格或多维表格 API，可以替换 `app/services/table_exporter.py`，把 CSV 写入改成写飞书表格；业务计算和查询逻辑不用改。
+
+## 注意事项
+
+当前 MVP 未实现飞书事件加密解密。如果飞书后台开启了事件加密，需要补充解密逻辑，或先关闭事件加密进行联调。
