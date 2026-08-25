@@ -84,42 +84,6 @@ curl http://127.0.0.1:8000/health
 curl -X POST http://127.0.0.1:8000/jobs/daily-report
 ```
 
-## BD 群发提醒机器人 MVP
-
-仓库新增了一个独立的 BD 群发提醒机器人模块：`miukoo_bot/`。它用于创建群发任务、按模板给 BD 发送消息、记录回复，并在超时未回复时自动提醒。
-
-当前能力：
-
-- 创建群发任务
-- 按消息类型渲染首发消息和提醒消息
-- SQLite 记录任务、收件人、发送日志、回复日志
-- webhook 模拟 BD 回复
-- 未回复定时提醒
-- 收到回复后停止提醒
-- Mock 消息适配器，本地打印消息，不真实外发
-
-本地启动：
-
-```bash
-python -m miukoo_bot --host 127.0.0.1 --port 8080
-```
-
-创建示例任务：
-
-```bash
-curl -X POST http://127.0.0.1:8080/api/tasks \
-  -H 'Content-Type: application/json' \
-  --data @examples/task.inventory.json
-```
-
-模拟 BD 回复：
-
-```bash
-curl -X POST http://127.0.0.1:8080/api/webhooks/mock/message \
-  -H 'Content-Type: application/json' \
-  -d '{"task_id":"替换成任务ID","bd_id":"bd_001","content":"已确认"}'
-```
-
 ## 部署
 
 推荐先使用 Docker 部署，内部服务器不走容器时可以使用 systemd。完整步骤见 [DEPLOYMENT.md](DEPLOYMENT.md)。
